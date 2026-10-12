@@ -512,9 +512,14 @@ def run_endpoint(
     options = options or RunOptions()
     recorder = CallRecorder(endpoint.name)
     if client is None:
-        client = make_client(endpoint, recorder, checksums=options.checksums)
-    else:
-        recorder.attach(client)
+        client = make_client(endpoint, checksums=options.checksums)
+    # One unrecorded call first so connection setup and any lazy server-side
+    # initialisation don't land on CreateBucket's latency.
+    try:
+        client.list_buckets()
+    except Exception:
+        pass
+    recorder.attach(client)
 
     bucket = make_bucket_name(options.bucket_prefix, endpoint.name)
     ctx = Context(endpoint=endpoint, client=client, recorder=recorder, bucket=bucket, options=options)

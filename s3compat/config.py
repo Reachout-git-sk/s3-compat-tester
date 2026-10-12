@@ -90,6 +90,18 @@ BUILTIN_SPECS: dict[str, EndpointSpec] = {
         default_access_key="minioadmin",
         default_secret_key="minioadmin",
     ),
+    "localstack": EndpointSpec(
+        name="localstack",
+        access_key_env="LOCALSTACK_ACCESS_KEY_ID",
+        secret_key_env="LOCALSTACK_SECRET_ACCESS_KEY",
+        endpoint_url_env="LOCALSTACK_ENDPOINT",
+        default_endpoint_url="http://localhost:4566",
+        region_env="LOCALSTACK_REGION",
+        default_region="us-east-1",
+        addressing_style="path",
+        default_access_key="test",
+        default_secret_key="test",
+    ),
 }
 
 
