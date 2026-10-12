@@ -1,0 +1,44 @@
+# Local S3-compatible targets for running the comparison without a cloud account.
+#
+#   docker compose up -d localstack
+#   s3compat run --moto -t aws,localstack --checksums when_required
+#
+# The minio service uses MINIO_IMAGE so it can point at whichever registry
+# still carries the image you trust (the minio/minio Docker Hub repo was not
+# pullable when this was written).
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: s3
+      DISABLE_EVENTS: "1"
+
+  minio:
+    image: ${MINIO_IMAGE:-minio/minio:latest}
+    command: server /data --console-address :9001
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    profiles: ["minio"]
+
+  s3compat:
+    build: .
+    depends_on: [localstack]
+    environment:
+      LOCALSTACK_ENDPOINT: http://localstack:4566
+      MINIO_ENDPOINT: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      WASABI_ACCESS_KEY_ID: ${WASABI_ACCESS_KEY_ID:-}
+      WASABI_SECRET_ACCESS_KEY: ${WASABI_SECRET_ACCESS_KEY:-}
+      WASABI_ENDPOINT: ${WASABI_ENDPOINT:-https://s3.wasabisys.com}
+      WASABI_REGION: ${WASABI_REGION:-us-east-1}
+    volumes:
+      - ./reports:/work/reports
+    profiles: ["cli"]
