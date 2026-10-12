@@ -149,3 +149,10 @@ def test_to_dict_is_json_serialisable():
     data = compare([a, b]).to_dict()
     json.dumps(data)
     assert data["summary"]["error"] == 2
+
+
+def test_status_mismatch_suppresses_etag_and_header_noise():
+    a = run("a", [rec("a", "p", "PresignedGet", 200, etag='"' + "a" * 32 + '"', last_modified="x")])
+    b = run("b", [rec("b", "p", "PresignedGet", 403, error="SignatureDoesNotMatch")])
+    cats = sorted(d.category for d in compare([a, b]).differences)
+    assert cats == ["error_code", "status"]
