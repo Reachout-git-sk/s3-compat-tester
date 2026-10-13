@@ -156,3 +156,11 @@ def test_status_mismatch_suppresses_etag_and_header_noise():
     b = run("b", [rec("b", "p", "PresignedGet", 403, error="SignatureDoesNotMatch")])
     cats = sorted(d.category for d in compare([a, b]).differences)
     assert cats == ["error_code", "status"]
+
+
+def test_two_success_statuses_still_compare_etags():
+    # e.g. HEAD ?partNumber=1: AWS answers 206 with the whole-object ETag
+    a = run("a", [rec("a", "mp", "HeadObject", 200, etag='"' + "a" * 32 + '"')])
+    b = run("b", [rec("b", "mp", "HeadObject", 206, etag='"' + "b" * 32 + '-13"')])
+    cats = sorted(d.category for d in compare([a, b]).differences)
+    assert cats == ["etag_format", "status"]

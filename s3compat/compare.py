@@ -176,7 +176,7 @@ def compare_calls(aligned: list[AlignedCall]) -> list[Difference]:
             a.flags.append("error-code")
             diffs.append(Difference("error_code", "error", a.step, a.operation, "error code differs", codes))
 
-        if _differs(statuses.values()):
+        if _differs(statuses.values()) and any((s or 0) >= 300 or s is None for s in statuses.values()):
             # An error response naturally lacks ETag and object headers; the
             # status difference already says everything worth saying.
             continue
