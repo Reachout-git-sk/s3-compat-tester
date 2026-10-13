@@ -6,5 +6,4 @@ __pycache__/
 build/
 dist/
 reports/
-!docs/sample-report/
 .env

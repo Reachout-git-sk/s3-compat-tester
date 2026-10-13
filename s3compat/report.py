@@ -124,7 +124,7 @@ def _latency_by_op(comparison: Comparison):
 
 def build_json(comparison: Comparison, runs: list[EndpointRun], options: RunOptions) -> dict[str, Any]:
     return {
-        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "options": vars(options),
         "comparison": comparison.to_dict(),
         "runs": [r.to_dict() for r in runs],
@@ -144,7 +144,7 @@ def build_markdown(comparison: Comparison, runs: list[EndpointRun], options: Run
 
     add("# S3 compatibility report")
     add("")
-    add(f"Generated {now}. Multipart object: {options.multipart_size_mb} MiB in "
+    add(f"Run at {now}. Multipart object: {options.multipart_size_mb} MiB in "
         f"{options.part_size_mb} MiB parts; listing {options.list_object_count} objects, page size {options.page_size}.")
     add("")
     add(f"**{c['error']} errors, {c['warning']} warnings, {c['info']} info.**")
