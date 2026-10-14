@@ -144,10 +144,60 @@ comparison and the live tests against it, and uploads the reports.
 
 ## Results actually measured
 
-**AWS vs Wasabi has not been run yet.** No AWS or Wasabi credentials were
-available when this was built, so there are no real-cloud numbers here. Set the
-variables above and run `s3compat run -t aws,wasabi` (or `pytest --live`) to get
-them.
+**Wasabi has been run (2026-10-13), AWS has not.** There were no AWS
+credentials, so real AWS S3 is still untested. Wasabi was compared against both
+emulators in a three-way run (`s3compat run --moto -t aws,wasabi,localstack`, where
+"aws" is the moto stand-in) in both checksum modes. `pytest --live` passed for
+Wasabi and LocalStack. All test buckets were deleted afterwards, and the Wasabi
+account was left with 0 buckets. Reports:
+[`docs/sample-report/wasabi-default/`](docs/sample-report/wasabi-default/) and
+[`docs/sample-report/wasabi-when-required/`](docs/sample-report/wasabi-when-required/).
+
+### Wasabi (real service) vs the emulators
+
+The CLI ran on the Windows host (Python 3.11, boto3 1.43) against `s3.wasabisys.com`
+(us-east-1, server `WasabiS3/8.1.359`) over a home connection, with the default
+100 MiB / 8 MiB multipart (13 parts).
+
+| Finding | moto ("aws") | Wasabi | LocalStack 3.8 |
+|---|---|---|---|
+| All 7 operations, botocore **default** checksums (CRC32) | pass | **pass** | `put_get` and `multipart` fail (see 1. below) |
+| All 7 operations, `--checksums when_required` | pass | pass | pass |
+| Presigned GET with one signature character changed | 200 | **403 `SignatureDoesNotMatch`** | 200 |
+| Presigned GET 2.5 s after a 1 s expiry | 200 | **403 `TimeExpired`** | 200 (403 `AccessDenied` only with validation turned on) |
+| HEAD `?partNumber=1` on the 13-part object | 200 | **206** | 206 |
+| Multipart ETag | `9e6f8d17…-13` | same, equal to MD5-of-part-MD5s | same |
+| ListObjects v1, no delimiter, truncated page | `NextMarker` present | **absent** | absent |
+| Version id | 36-char UUID | 32 chars, e.g. `001791942113484424095-dIG2y2SAne` | 32-char opaque |
+| `x-amz-server-side-encryption` on object calls | never | **never** | `AES256` |
+| `Content-Length` on bodyless responses (CompleteMultipartUpload, DeleteObjects, GetBucketVersioning, ...) | sent | **missing on 32 calls** | sent |
+| `Content-Type` on bodyless responses | sent | missing on 54 calls | missing on 54 calls |
+| `Last-Modified` on PutObject / UploadPart | sent | missing | missing |
+| `x-amz-version-id` on CompleteMultipartUpload | `null` | absent | absent |
+
+What matched on all three: the error codes for missing keys (`NoSuchKey`), bogus
+versions (`NoSuchVersion`), undersized parts (`EntityTooSmall`) and the delete
+marker flow; v2 pagination of 10/10/8 keys; `MaxKeys=0`; and the SHA-256 of the
+100 MiB download.
+
+The main thing this shows is that **neither emulator checks presigned signatures
+or expiry by default, and Wasabi does.** A test suite that passes against
+moto or LocalStack can still hide a broken presign flow.
+
+Wasabi latency, per call (ms, `when_required` run, the round trip from this laptop):
+
+| API call | n | p50 | p95 |
+|---|---|---|---|
+| PutObject (256 KiB) | 32 | 30.5 | 57.6 |
+| GetObject | 9 | 33.9 | 70.6 |
+| HeadObject | 4 | 30.2 | 32.7 |
+| ListObjectsV2 | 6 | 37.2 | 75.2 |
+| UploadPart (8 MiB) | 15 | 2,440 | 2,692 |
+| CompleteMultipartUpload | 2 | 69.3 | 74.6 |
+
+The multipart moved at 2.9–3.6 MiB/s up and 22–25 MiB/s down. That is this home
+connection's bandwidth, not a Wasabi limit. moto and LocalStack were also reached
+from the host in this run, so their latencies here aren't comparable (see 4. below).
 
 **MinIO was not run either.** The plan was to compare against `minio/minio`, but
 on 2026-10-12 Docker Hub answered `pull access denied for minio/minio, repository
